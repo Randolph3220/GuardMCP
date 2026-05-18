@@ -1,0 +1,25 @@
+# Python
+venv/
+.venv/
+env/
+ENV/
+__pycache__/
+*.pyc
+*.pyo
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# 密钥和临时文件
+*.key
+*.pem
+*.log
+*.db
+audit.jsonl
+outbox.jsonl
+
+# 本地配置
+.env
+.local/
