@@ -277,6 +277,34 @@ python agent_host/run_online_agent.py --limit 10
 
 为降低正常任务误拦截，online runner 会把 `is_attack=false` 的正常 case 对齐到数据集中的 `mock_intent`：邮件使用允许列表中的收件人，敏感文件固定为 `sensitive/secret.txt`，普通命令固定为 `cat public/demo.txt`。攻击 case 不做该改写。
 
+## 前端展示控制台
+
+`frontend/` 提供一个 Vite + React 的课程展示 UI，用于演示服务状态、最小链路场景、Guard 判定轨迹、策略矩阵、审计事件和真实模型实验结果。
+
+先启动三个后端服务：
+
+```bash
+uvicorn auth_server.app:app --host 127.0.0.1 --port 8001
+uvicorn mcp_server.app:app --host 127.0.0.1 --port 8000
+uvicorn guard_proxy.app:app --host 127.0.0.1 --port 8002
+```
+
+再启动前端：
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+默认访问：
+
+```text
+http://127.0.0.1:5173
+```
+
+前端通过 Vite proxy 调用 `/auth`、`/mcp-server` 和 `/guard`，因此浏览器不会遇到 CORS 问题。演示台内置五个场景：公开文件读取、缺 scope challenge、间接注入拒绝、邮件确认后写入 outbox、敏感读取降级。
+
 ## 最小联调链路
 
 第八部分的联调脚本会真实调用三个服务，覆盖：取 T1/T2/T3 token、通过 Guard 查工具列表、触发缺 scope challenge、正常读取公开文件、拒绝间接注入邮件、用户确认后写入 `outbox.jsonl`。

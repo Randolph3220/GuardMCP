@@ -6,6 +6,8 @@ ENV/
 __pycache__/
 *.pyc
 *.pyo
+node_modules/
+dist/
 
 # IDE
 .idea/
