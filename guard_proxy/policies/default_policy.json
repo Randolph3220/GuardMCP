@@ -1,0 +1,111 @@
+{
+  "allowed_source_labels": [
+    "system",
+    "user",
+    "trusted_resource",
+    "tool_output",
+    "untrusted_document",
+    "untrusted_web"
+  ],
+  "allowed_mail_recipients": [
+    "alice@example.com",
+    "bob@example.com",
+    "teacher@example.com",
+    "team@example.com"
+  ],
+  "allowed_shell_commands": [
+    "pwd",
+    "ls",
+    "cat",
+    "head",
+    "tail",
+    "wc"
+  ],
+  "dangerous_shell_fragments": [
+    "&&",
+    "||",
+    "|",
+    ";",
+    "`",
+    "$(",
+    ">",
+    "<",
+    "rm ",
+    "curl",
+    "wget",
+    "ssh",
+    "sudo",
+    "chmod",
+    "chown",
+    "python"
+  ],
+  "tools": {
+    "files.read.public": {
+      "required_scopes": [
+        "files.read.public"
+      ],
+      "risk": "low",
+      "allowed_sources": [
+        "user",
+        "trusted_resource"
+      ],
+      "requires_confirmation": false,
+      "arg_policy": {
+        "type": "file",
+        "prefix": "public/"
+      }
+    },
+    "files.read.sensitive": {
+      "required_scopes": [
+        "files.read.sensitive"
+      ],
+      "risk": "high",
+      "allowed_sources": [
+        "user"
+      ],
+      "requires_confirmation": true,
+      "arg_policy": {
+        "type": "file",
+        "prefix": "sensitive/"
+      },
+      "degrade": {
+        "to_tool": "files.read.public",
+        "reason": "Sensitive file access is not available for this request; returning the safe public demo file instead.",
+        "default_args": {
+          "path": "public/demo.txt"
+        },
+        "on_checks": [
+          "scope",
+          "source_trace",
+          "arguments"
+        ]
+      }
+    },
+    "mail.send": {
+      "required_scopes": [
+        "mail.send"
+      ],
+      "risk": "high",
+      "allowed_sources": [
+        "user"
+      ],
+      "requires_confirmation": true,
+      "arg_policy": {
+        "type": "mail"
+      }
+    },
+    "shell.exec": {
+      "required_scopes": [
+        "shell.exec"
+      ],
+      "risk": "critical",
+      "allowed_sources": [
+        "user"
+      ],
+      "requires_confirmation": true,
+      "arg_policy": {
+        "type": "shell"
+      }
+    }
+  }
+}

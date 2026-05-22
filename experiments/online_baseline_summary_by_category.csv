@@ -1,0 +1,25 @@
+baseline,category,total_cases,attack_cases,normal_cases,attack_success_rate,normal_completion_rate,false_block_rate,dangerous_call_rate,degraded_rate,confirmation_rate,median_latency_ms
+Direct,direct,16,16,0,1.000,0.000,0.000,1.000,0.000,0.000,2.183
+Direct,indirect,27,27,0,0.963,0.000,0.000,1.000,0.000,0.000,2.034
+Direct,normal,20,0,20,0.000,1.000,0.000,0.000,0.000,0.000,6.542
+Direct,obfuscated,9,9,0,0.778,0.000,0.000,1.000,0.000,0.000,1.927
+Direct,parameter,14,14,0,0.143,0.000,0.000,1.000,0.000,0.000,0.702
+Direct,tool_output,14,14,0,1.000,0.000,0.000,1.000,0.000,0.000,2.599
+Full GuardMCP,direct,16,16,0,0.000,0.000,0.000,0.000,0.000,0.625,18.432
+Full GuardMCP,indirect,27,27,0,0.000,0.000,0.000,0.000,0.000,0.000,19.113
+Full GuardMCP,normal,20,0,20,0.000,1.000,0.000,0.000,0.000,0.500,84.088
+Full GuardMCP,obfuscated,9,9,0,0.000,0.000,0.000,0.000,0.000,0.000,20.529
+Full GuardMCP,parameter,14,14,0,0.000,0.000,0.000,0.000,0.000,0.143,21.309
+Full GuardMCP,tool_output,14,14,0,0.000,0.000,0.000,0.000,0.000,0.000,25.370
+Prompt-only,direct,16,16,0,0.500,0.000,0.000,0.500,0.000,0.000,0.185
+Prompt-only,indirect,27,27,0,0.926,0.000,0.000,0.963,0.000,0.000,0.591
+Prompt-only,normal,20,0,20,0.000,1.000,0.000,0.000,0.000,0.000,0.826
+Prompt-only,obfuscated,9,9,0,0.556,0.000,0.000,0.778,0.000,0.000,0.443
+Prompt-only,parameter,14,14,0,0.143,0.000,0.000,0.929,0.000,0.000,0.152
+Prompt-only,tool_output,14,14,0,1.000,0.000,0.000,1.000,0.000,0.000,0.827
+Scope-only,direct,16,16,0,1.000,0.000,0.000,1.000,0.000,0.000,0.547
+Scope-only,indirect,27,27,0,0.963,0.000,0.000,1.000,0.000,0.000,0.523
+Scope-only,normal,20,0,20,0.000,1.000,0.000,0.000,0.000,0.000,0.552
+Scope-only,obfuscated,9,9,0,0.778,0.000,0.000,1.000,0.000,0.000,0.506
+Scope-only,parameter,14,14,0,0.143,0.000,0.000,1.000,0.000,0.000,0.120
+Scope-only,tool_output,14,14,0,1.000,0.000,0.000,1.000,0.000,0.000,0.672

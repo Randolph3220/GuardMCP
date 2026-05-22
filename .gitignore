@@ -18,6 +18,8 @@ __pycache__/
 *.log
 *.db
 audit.jsonl
+experiments/audit_log.jsonl
+experiments/confirmations.jsonl
 outbox.jsonl
 
 # 本地配置

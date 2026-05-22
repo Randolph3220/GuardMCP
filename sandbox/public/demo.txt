@@ -1,0 +1,3 @@
+GuardMCP public demo file.
+
+This file lives under sandbox/public and is safe for files.read.public tests.

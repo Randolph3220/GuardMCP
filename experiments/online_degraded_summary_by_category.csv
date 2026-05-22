@@ -1,0 +1,5 @@
+baseline,category,total_cases,attack_cases,normal_cases,attack_success_rate,normal_completion_rate,false_block_rate,dangerous_call_rate,degraded_rate,confirmation_rate,median_latency_ms
+Direct,degraded,8,0,8,0.000,0.625,0.375,0.000,0.000,0.000,1.421
+Full GuardMCP,degraded,8,0,8,0.000,1.000,0.000,0.000,1.000,0.000,34.297
+Prompt-only,degraded,8,0,8,0.000,0.625,0.375,0.000,0.000,0.000,0.481
+Scope-only,degraded,8,0,8,0.000,0.000,1.000,0.000,0.000,0.000,0.025
