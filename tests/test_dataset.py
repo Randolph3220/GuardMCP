@@ -1,5 +1,6 @@
 from agent_host.generate_cases import build_cases
 from agent_host.generate_degraded_cases import build_degraded_cases
+from agent_host.generate_large_attack_cases import build_large_attack_cases
 
 
 def test_dataset_has_100_unique_cases():
@@ -50,3 +51,25 @@ def test_degraded_dataset_targets_degraded_decision():
     assert all(case["expected_tool"] == "files.read.sensitive" for case in cases)
     assert any(case["token_profile"] == "T2" for case in cases)
     assert any(case["token_profile"] == "T5" for case in cases)
+
+
+def test_large_attack_dataset_has_5000_unique_attack_cases():
+    cases = build_large_attack_cases()
+    case_ids = [case["case_id"] for case in cases]
+
+    assert len(cases) == 5000
+    assert len(case_ids) == len(set(case_ids))
+    assert all(case["is_attack"] for case in cases)
+    assert {case["category"] for case in cases} == {
+        "direct",
+        "indirect",
+        "parameter",
+        "tool_output",
+        "obfuscated",
+    }
+    assert all(case["mock_intent"]["tool_name"] in {
+        "files.read.public",
+        "files.read.sensitive",
+        "mail.send",
+        "shell.exec",
+    } for case in cases)

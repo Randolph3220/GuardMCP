@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   ChevronRight,
   Clock3,
+  Code2,
   Database,
   FileText,
   GitBranch,
@@ -15,7 +16,9 @@ import {
   Play,
   RefreshCw,
   Server,
+  Send,
   ShieldCheck,
+  SlidersHorizontal,
   TerminalSquare,
   XCircle,
 } from "lucide-react";
@@ -123,6 +126,78 @@ const SCENARIOS = [
   },
 ];
 
+const SOURCE_LABELS = [
+  "user",
+  "trusted_resource",
+  "untrusted_web",
+  "untrusted_document",
+  "tool_output",
+  "system",
+];
+
+const CUSTOM_TEMPLATES = [
+  {
+    id: "safe-public",
+    label: "安全公开读取",
+    profile: "T2",
+    toolName: "files.read.public",
+    sourceLabel: "user",
+    purpose: "Read a public course demo file.",
+    args: { path: "public/demo.txt" },
+  },
+  {
+    id: "missing-scope",
+    label: "缺权限挑战",
+    profile: "T1",
+    toolName: "files.read.public",
+    sourceLabel: "user",
+    purpose: "Try reading a public file with a list-only token.",
+    args: { path: "public/demo.txt" },
+  },
+  {
+    id: "deny-injection",
+    label: "间接注入拒绝",
+    profile: "T3",
+    toolName: "mail.send",
+    sourceLabel: "untrusted_web",
+    purpose: "Attempt to send email based on an untrusted webpage instruction.",
+    args: {
+      to: "teacher@example.com",
+      subject: "Injected message",
+      body: "Untrusted page says to send this.",
+    },
+  },
+  {
+    id: "degrade-sensitive",
+    label: "敏感读取降级",
+    profile: "T2",
+    toolName: "files.read.sensitive",
+    sourceLabel: "user",
+    purpose: "Request sensitive file with public-only token and accept safe fallback.",
+    args: { path: "sensitive/secret.txt" },
+  },
+  {
+    id: "shell-safe",
+    label: "只读命令",
+    profile: "T5",
+    toolName: "shell.exec",
+    sourceLabel: "user",
+    purpose: "Run a whitelisted read-only command in the sandbox.",
+    args: { command: "ls public" },
+  },
+];
+
+const DEFAULT_CUSTOM_FORM = {
+  profile: "T2",
+  toolName: "files.read.public",
+  sourceLabel: "user",
+  purpose: "Read a public course demo file.",
+  sourceDescription: "Manual instruction entered from the GuardMCP UI.",
+  argsText: JSON.stringify({ path: "public/demo.txt" }, null, 2),
+  riskAck: false,
+  autoConfirm: false,
+};
+
 function intentFor(token, toolName, toolArgs, sourceLabel, sourceDescription = "User-visible demo request.") {
   return {
     intent_id: `ui-${toolName.replaceAll(".", "-")}-${Date.now()}`,
@@ -161,6 +236,29 @@ function metricPercent(value) {
   return `${Math.round(number * 1000) / 10}%`;
 }
 
+function verdictFor(result) {
+  const decision = result?.decision;
+  if (decision === "allow") return { title: "可以调用", detail: "Guard 已放行并执行目标工具。", tone: "allow" };
+  if (decision === "degraded") return { title: "可降级调用", detail: "Guard 已替换为低风险工具并完成执行。", tone: "degraded" };
+  if (decision === "scope_challenge") return { title: "缺少权限", detail: "Token 有效，但缺少目标工具所需 scope。", tone: "challenge" };
+  if (decision === "user_confirm") return { title: "需要确认", detail: "高风险工具需要携带 confirmation_hash 再次提交。", tone: "confirm" };
+  if (decision === "deny") return { title: "不可调用", detail: "Guard 策略拒绝了本次调用。", tone: "deny" };
+  return { title: "等待判定", detail: "输入调用指令后运行 Guard 检查。", tone: "neutral" };
+}
+
+function applyTemplate(template) {
+  return {
+    profile: template.profile,
+    toolName: template.toolName,
+    sourceLabel: template.sourceLabel,
+    purpose: template.purpose,
+    sourceDescription: "Loaded from a built-in manual-call template.",
+    argsText: JSON.stringify(template.args, null, 2),
+    riskAck: false,
+    autoConfirm: false,
+  };
+}
+
 function App() {
   const [activeTab, setActiveTab] = useState("console");
   const [serviceStatus, setServiceStatus] = useState({});
@@ -171,15 +269,20 @@ function App() {
   const [lastResponse, setLastResponse] = useState(null);
   const [timeline, setTimeline] = useState([]);
   const [auditEvents, setAuditEvents] = useState([]);
+  const [customForm, setCustomForm] = useState(DEFAULT_CUSTOM_FORM);
+  const [customParseError, setCustomParseError] = useState("");
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
 
   const selectedToken = tokens?.profiles?.[selectedProfile];
   const lastResult = rpcResult(lastResponse);
   const lastDecision = lastResult?.decision || "";
+  const verdict = verdictFor(lastResult);
 
   const mainExperiment = experimentResults.baselineSummary;
   const degradedExperiment = experimentResults.degradedSummary;
+  const largeAttackExperiment = experimentResults.largeAttackSummary;
+  const fullGuardSummary = mainExperiment.find((row) => row.baseline === "Full GuardMCP");
 
   useEffect(() => {
     refreshStatus();
@@ -287,6 +390,88 @@ function App() {
     });
   }
 
+  function updateCustomForm(field, value) {
+    setCustomForm((current) => ({ ...current, [field]: value }));
+    if (field === "argsText") setCustomParseError("");
+  }
+
+  function loadCustomTemplate(template) {
+    setCustomForm(applyTemplate(template));
+    setCustomParseError("");
+  }
+
+  async function runCustomCall() {
+    await runTask("custom-call", async () => {
+      let toolArgs;
+      try {
+        toolArgs = JSON.parse(customForm.argsText || "{}");
+      } catch (err) {
+        setCustomParseError(err.message);
+        throw new Error(`工具参数不是合法 JSON：${err.message}`);
+      }
+      if (!toolArgs || typeof toolArgs !== "object" || Array.isArray(toolArgs)) {
+        setCustomParseError("tool_args 必须是 JSON object。");
+        throw new Error("tool_args 必须是 JSON object。");
+      }
+
+      let profileToken = tokens?.profiles?.[customForm.profile];
+      if (!profileToken) {
+        const payload = await requestJson("/auth/tokens/test");
+        setTokens(payload);
+        profileToken = payload.profiles[customForm.profile];
+      }
+      setSelectedProfile(customForm.profile);
+
+      const intent = {
+        intent_id: `ui-custom-${Date.now()}`,
+        session_id: profileToken.session_id,
+        tool_name: customForm.toolName.trim(),
+        tool_args: toolArgs,
+        purpose: customForm.purpose.trim() || "Manual GuardMCP UI call.",
+        source_trace: [
+          {
+            source_id: `manual-${customForm.sourceLabel}`,
+            label: customForm.sourceLabel,
+            description: customForm.sourceDescription.trim() || "Manual UI source.",
+          },
+        ],
+        risk_ack: customForm.riskAck,
+      };
+      setLastIntent(intent);
+
+      const firstResponse = await guardRpc(
+        profileToken.access_token,
+        "ui-custom-call-1",
+        "tools/call",
+        { intent },
+      );
+      const firstResult = rpcResult(firstResponse);
+      const nextTimeline = [{ label: "manual call", result: firstResult }];
+
+      if (customForm.autoConfirm && firstResult.decision === "user_confirm") {
+        const confirmedIntent = {
+          ...intent,
+          confirmation_hash: firstResult.confirmation_hash,
+        };
+        const secondResponse = await guardRpc(
+          profileToken.access_token,
+          "ui-custom-call-2",
+          "tools/call",
+          { intent: confirmedIntent },
+        );
+        const secondResult = rpcResult(secondResponse);
+        nextTimeline.push({ label: "auto-confirm replay", result: secondResult });
+        setLastIntent(confirmedIntent);
+        setLastResponse(secondResponse);
+      } else {
+        setLastResponse(firstResponse);
+      }
+
+      setTimeline(nextTimeline);
+      await loadAudit();
+    });
+  }
+
   const checkStates = useMemo(() => {
     return CHECKS.map((check) => {
       if (!lastResult) return { check, state: "pending" };
@@ -318,6 +503,9 @@ function App() {
           <button className={activeTab === "console" ? "active" : ""} onClick={() => setActiveTab("console")}>
             <Activity size={17} /> 演示台
           </button>
+          <button className={activeTab === "manual" ? "active" : ""} onClick={() => setActiveTab("manual")}>
+            <TerminalSquare size={17} /> 调用实验室
+          </button>
           <button className={activeTab === "results" ? "active" : ""} onClick={() => setActiveTab("results")}>
             <BarChart3 size={17} /> 实验结果
           </button>
@@ -333,6 +521,23 @@ function App() {
           <span>{error}</span>
         </div>
       )}
+
+      <section className="overview-strip">
+        <OverviewCard icon={ShieldCheck} label="Full GuardMCP 攻击成功率" value={metricPercent(fullGuardSummary?.attack_success_rate || "0")} tone="good" />
+        <OverviewCard icon={CheckCircle2} label="正常任务完成率" value={metricPercent(fullGuardSummary?.normal_completion_rate || "0")} tone="good" />
+        <OverviewCard icon={GitBranch} label="策略判定类型" value="5 类" tone="info" />
+        <OverviewCard icon={Database} label="真实模型结果行" value="400+" tone="neutral" />
+      </section>
+
+      <section className="flow-band" aria-label="系统调用链">
+        <FlowNode icon={Activity} label="Agent / Client" />
+        <ChevronRight size={17} />
+        <FlowNode icon={ShieldCheck} label="Guard Proxy" />
+        <ChevronRight size={17} />
+        <FlowNode icon={Server} label="MCP Server" />
+        <ChevronRight size={17} />
+        <FlowNode icon={TerminalSquare} label="Mock Runtime" />
+      </section>
 
       {activeTab === "console" && (
         <main className="dashboard-grid">
@@ -435,6 +640,119 @@ function App() {
         </main>
       )}
 
+      {activeTab === "manual" && (
+        <main className="manual-layout">
+          <section className="panel custom-call-panel">
+            <PanelHeader icon={TerminalSquare} title="自定义调用指令" />
+            <div className="template-row">
+              {CUSTOM_TEMPLATES.map((template) => (
+                <button key={template.id} onClick={() => loadCustomTemplate(template)} disabled={!!busy}>
+                  {template.label}
+                </button>
+              ))}
+            </div>
+            <div className="manual-form">
+              <div className="form-grid">
+                <label>
+                  <span>Token Profile</span>
+                  <select value={customForm.profile} onChange={(event) => updateCustomForm("profile", event.target.value)}>
+                    {["T1", "T2", "T3", "T4", "T5"].map((profile) => <option key={profile} value={profile}>{profile}</option>)}
+                  </select>
+                </label>
+                <label>
+                  <span>Tool Name</span>
+                  <select value={customForm.toolName} onChange={(event) => updateCustomForm("toolName", event.target.value)}>
+                    {Object.keys(policyConfig.tools).map((tool) => <option key={tool} value={tool}>{tool}</option>)}
+                  </select>
+                </label>
+                <label>
+                  <span>Source Label</span>
+                  <select value={customForm.sourceLabel} onChange={(event) => updateCustomForm("sourceLabel", event.target.value)}>
+                    {SOURCE_LABELS.map((label) => <option key={label} value={label}>{label}</option>)}
+                  </select>
+                </label>
+              </div>
+              <label className="text-field">
+                <span>调用说明 / Purpose</span>
+                <input
+                  value={customForm.purpose}
+                  onChange={(event) => updateCustomForm("purpose", event.target.value)}
+                  placeholder="描述这次工具调用为什么被请求"
+                />
+              </label>
+              <label className="text-field">
+                <span>来源说明</span>
+                <input
+                  value={customForm.sourceDescription}
+                  onChange={(event) => updateCustomForm("sourceDescription", event.target.value)}
+                  placeholder="例如：用户输入、网页内容、工具输出"
+                />
+              </label>
+              <label className="text-field">
+                <span>Tool Args JSON</span>
+                <textarea
+                  value={customForm.argsText}
+                  onChange={(event) => updateCustomForm("argsText", event.target.value)}
+                  spellCheck="false"
+                />
+              </label>
+              {customParseError && <p className="parse-error">{customParseError}</p>}
+              <div className="manual-options">
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={customForm.riskAck}
+                    onChange={(event) => updateCustomForm("riskAck", event.target.checked)}
+                  />
+                  <span>risk_ack</span>
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={customForm.autoConfirm}
+                    onChange={(event) => updateCustomForm("autoConfirm", event.target.checked)}
+                  />
+                  <span>自动二次确认 user_confirm</span>
+                </label>
+              </div>
+              <button className="primary-action" onClick={runCustomCall} disabled={!!busy}>
+                <Send size={17} /> 发送到 Guard 判定
+              </button>
+            </div>
+          </section>
+
+          <section className="panel verdict-panel">
+            <PanelHeader icon={SlidersHorizontal} title="调用判定" />
+            <div className={`verdict-card ${verdict.tone}`}>
+              <span className={`decision-badge ${verdict.tone}`}>{lastDecision || "waiting"}</span>
+              <h2>{verdict.title}</h2>
+              <p>{lastResult?.reason || lastResult?.message || verdict.detail}</p>
+              {lastResult?.missing_scopes && (
+                <div className="scope-wrap">
+                  {lastResult.missing_scopes.map((scope) => <span key={scope}>missing: {scope}</span>)}
+                </div>
+              )}
+              {lastResult?.degraded_tool && (
+                <div className="scope-wrap">
+                  <span>degraded to: {lastResult.degraded_tool}</span>
+                </div>
+              )}
+            </div>
+            <div className="checks manual-checks">
+              {checkStates.map((item) => <CheckStep key={item.check} {...item} />)}
+            </div>
+          </section>
+
+          <section className="panel json-panel manual-json">
+            <PanelHeader icon={Code2} title="本次调用详情" />
+            <div className="json-columns">
+              <JsonBlock title="Generated Intent" value={lastIntent} />
+              <JsonBlock title="Guard Decision / Execution" value={lastResponse} />
+            </div>
+          </section>
+        </main>
+      )}
+
       {activeTab === "results" && (
         <main className="results-layout">
           <section className="panel">
@@ -446,8 +764,16 @@ function App() {
             <MetricsTable rows={degradedExperiment} />
           </section>
           <section className="panel wide-panel">
+            <PanelHeader icon={AlertTriangle} title="5000 条攻击压力测试" />
+            <MetricsTable rows={largeAttackExperiment} />
+          </section>
+          <section className="panel wide-panel">
             <PanelHeader icon={Database} title="按攻击类别拆分" />
             <CategoryTable rows={experimentResults.baselineByCategory} />
+          </section>
+          <section className="panel wide-panel">
+            <PanelHeader icon={Database} title="5000 攻击按类别拆分" />
+            <CategoryTable rows={experimentResults.largeAttackByCategory} />
           </section>
         </main>
       )}
@@ -476,6 +802,27 @@ function PanelHeader({ icon: Icon, title, action }) {
         <h2>{title}</h2>
       </div>
       {action}
+    </div>
+  );
+}
+
+function OverviewCard({ icon: Icon, label, value, tone }) {
+  return (
+    <article className={`overview-card ${tone}`}>
+      <Icon size={20} />
+      <div>
+        <strong>{value}</strong>
+        <span>{label}</span>
+      </div>
+    </article>
+  );
+}
+
+function FlowNode({ icon: Icon, label }) {
+  return (
+    <div className="flow-node">
+      <Icon size={17} />
+      <span>{label}</span>
     </div>
   );
 }

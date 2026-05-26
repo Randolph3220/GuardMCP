@@ -1,3 +1,4 @@
+import argparse
 import csv
 import json
 import statistics
@@ -15,9 +16,13 @@ from guard_proxy.app import CONFIRMATION_STORE, TOOL_POLICIES, policy_engine  # 
 from mcp_server.app import OUTBOX_PATH, execute_tool  # noqa: E402
 
 CASES_PATH = PROJECT_ROOT / "attacks" / "cases.jsonl"
+LARGE_ATTACK_CASES_PATH = PROJECT_ROOT / "attacks" / "large_attack_cases.jsonl"
 RESULTS_PATH = PROJECT_ROOT / "experiments" / "results.csv"
 SUMMARY_PATH = PROJECT_ROOT / "experiments" / "summary.csv"
 SUMMARY_BY_CATEGORY_PATH = PROJECT_ROOT / "experiments" / "summary_by_category.csv"
+LARGE_ATTACK_RESULTS_PATH = PROJECT_ROOT / "experiments" / "large_attack_results.csv"
+LARGE_ATTACK_SUMMARY_PATH = PROJECT_ROOT / "experiments" / "large_attack_summary.csv"
+LARGE_ATTACK_SUMMARY_BY_CATEGORY_PATH = PROJECT_ROOT / "experiments" / "large_attack_summary_by_category.csv"
 
 BASELINES = ["Direct", "Prompt-only", "Scope-only", "Full GuardMCP"]
 TOKEN_SCOPES = {
@@ -29,8 +34,12 @@ TOKEN_SCOPES = {
 }
 
 
-def load_cases() -> list[dict[str, Any]]:
-    with CASES_PATH.open(encoding="utf-8") as handle:
+def resolve_path(path: Path) -> Path:
+    return path if path.is_absolute() else PROJECT_ROOT / path
+
+
+def load_cases(path: Path) -> list[dict[str, Any]]:
+    with path.open(encoding="utf-8") as handle:
         return [json.loads(line) for line in handle if line.strip()]
 
 
@@ -231,21 +240,54 @@ def write_csv(path: Path, rows: list[dict[str, Any]]):
         writer.writerows(rows)
 
 
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Run offline GuardMCP baseline experiments.")
+    parser.add_argument("--suite", choices=["main", "large-attacks"], default="main")
+    parser.add_argument("--cases-path", type=Path)
+    parser.add_argument("--results-path", type=Path)
+    parser.add_argument("--summary-path", type=Path)
+    parser.add_argument("--summary-by-category-path", type=Path)
+    return parser.parse_args()
+
+
+def default_paths(suite: str) -> tuple[Path, Path, Path, Path]:
+    if suite == "large-attacks":
+        return (
+            LARGE_ATTACK_CASES_PATH,
+            LARGE_ATTACK_RESULTS_PATH,
+            LARGE_ATTACK_SUMMARY_PATH,
+            LARGE_ATTACK_SUMMARY_BY_CATEGORY_PATH,
+        )
+    return CASES_PATH, RESULTS_PATH, SUMMARY_PATH, SUMMARY_BY_CATEGORY_PATH
+
+
 def main():
+    args = parse_args()
+    default_cases, default_results, default_summary, default_summary_by_category = default_paths(args.suite)
+    cases_path = resolve_path(args.cases_path) if args.cases_path else default_cases
+    results_path = resolve_path(args.results_path) if args.results_path else default_results
+    summary_path = resolve_path(args.summary_path) if args.summary_path else default_summary
+    summary_by_category_path = (
+        resolve_path(args.summary_by_category_path)
+        if args.summary_by_category_path
+        else default_summary_by_category
+    )
+
     CONFIRMATION_STORE.clear()
     if OUTBOX_PATH.exists():
         OUTBOX_PATH.unlink()
-    cases = load_cases()
+    cases = load_cases(cases_path)
     if len(cases) < 100:
         raise RuntimeError(f"Expected at least 100 cases, found {len(cases)}")
 
     rows = [run_case(case, baseline) for baseline in BASELINES for case in cases]
-    write_csv(RESULTS_PATH, rows)
-    write_csv(SUMMARY_PATH, summarize(rows, ["baseline"]))
-    write_csv(SUMMARY_BY_CATEGORY_PATH, summarize(rows, ["baseline", "category"]))
-    print(f"wrote {len(rows)} rows to {RESULTS_PATH.relative_to(PROJECT_ROOT)}")
-    print(f"wrote summary to {SUMMARY_PATH.relative_to(PROJECT_ROOT)}")
-    print(f"wrote category summary to {SUMMARY_BY_CATEGORY_PATH.relative_to(PROJECT_ROOT)}")
+    write_csv(results_path, rows)
+    write_csv(summary_path, summarize(rows, ["baseline"]))
+    write_csv(summary_by_category_path, summarize(rows, ["baseline", "category"]))
+    print(f"read {len(cases)} cases from {cases_path.relative_to(PROJECT_ROOT)}")
+    print(f"wrote {len(rows)} rows to {results_path.relative_to(PROJECT_ROOT)}")
+    print(f"wrote summary to {summary_path.relative_to(PROJECT_ROOT)}")
+    print(f"wrote category summary to {summary_by_category_path.relative_to(PROJECT_ROOT)}")
 
 
 if __name__ == "__main__":

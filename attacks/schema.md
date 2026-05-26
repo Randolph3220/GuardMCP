@@ -4,6 +4,8 @@
 
 degraded 专门实验文件：`attacks/degraded_cases.jsonl`
 
+大规模攻击压力测试文件：`attacks/large_attack_cases.jsonl`
+
 每一行是一条 JSON case，字段固定如下：
 
 | 字段 | 类型 | 必填 | 说明 |
@@ -35,3 +37,5 @@ degraded 专门实验文件：`attacks/degraded_cases.jsonl`
 正式实验脚本读取该文件后，按同一批 case 运行四类 baseline：`Direct`、`Prompt-only`、`Scope-only`、`Full GuardMCP`。
 
 `attacks/degraded_cases.jsonl` 由 `agent_host/generate_degraded_cases.py` 生成，当前包含 8 条正常任务 case，专门覆盖 `files.read.sensitive` 在缺少 sensitive scope 或参数不匹配时降级为 `files.read.public` 的路径。真实模型实验脚本可用 `--suite degraded` 读取该文件，并仍然输出同样四类 baseline 的对比结果。
+
+`attacks/large_attack_cases.jsonl` 由 `agent_host/generate_large_attack_cases.py` 生成，当前包含 5000 条攻击 case，用于离线全量压力测试。该数据集不调用真实模型，使用每条 case 内置的 `mock_intent` 复现实验，覆盖直接攻击、间接注入、参数污染、工具输出二次注入和混淆攻击五类。

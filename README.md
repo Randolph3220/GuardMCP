@@ -233,6 +233,34 @@ python agent_host/run_experiments.py
 - `experiments/summary.csv`
 - `experiments/summary_by_category.csv`
 
+生成 5000 条攻击数据并运行离线全量压力测试：
+
+```bash
+python agent_host/generate_large_attack_cases.py
+python agent_host/run_experiments.py --suite large-attacks
+```
+
+输出文件：
+
+- `attacks/large_attack_cases.jsonl`
+- `experiments/large_attack_results.csv`
+- `experiments/large_attack_summary.csv`
+- `experiments/large_attack_summary_by_category.csv`
+
+如果需要用真实模型跑同一批 5000 条攻击数据，可运行在线 large-attacks suite。该命令会产生约 5000 次模型调用，建议保留 `--resume`，便于网络中断后续跑：
+
+```bash
+export DEEPSEEK_API_KEY="<your-deepseek-api-key>"
+python agent_host/run_online_baselines.py --suite large-attacks --limit all --resume
+```
+
+输出文件：
+
+- `experiments/online_large_attack_results.csv`
+- `experiments/online_large_attack_trace.jsonl`
+- `experiments/online_large_attack_summary.csv`
+- `experiments/online_large_attack_summary_by_category.csv`
+
 运行真实模型下的四类 baseline。该脚本对每条 case 只调用一次真实模型生成 intent，再把同一个 intent 分别送入 `Direct`、`Prompt-only`、`Scope-only`、`Full GuardMCP`：
 
 ```bash
@@ -246,6 +274,25 @@ python agent_host/run_online_baselines.py --limit 10
 - `experiments/online_baseline_trace.jsonl`
 - `experiments/online_baseline_summary.csv`
 - `experiments/online_baseline_summary_by_category.csv`
+
+使用自定义 JSONL 数据集时，不需要替换 `attacks/cases.jsonl`。例如把爬取数据转换成 `attacks/real_web_cases.jsonl` 后运行：
+
+```bash
+export DEEPSEEK_API_KEY="<your-deepseek-api-key>"
+python agent_host/run_online_baselines.py \
+  --cases-file attacks/real_web_cases.jsonl \
+  --output-prefix real_web \
+  --limit all
+```
+
+输出文件会写到：
+
+- `experiments/online_real_web_baseline_results.csv`
+- `experiments/online_real_web_baseline_trace.jsonl`
+- `experiments/online_real_web_baseline_summary.csv`
+- `experiments/online_real_web_baseline_summary_by_category.csv`
+
+在线模型输入只包含 `session_id`、`user_prompt`、脱敏后的 `external_resources`、`tool_catalog`、`runtime_constraints` 和 `required_json_schema`。评估字段不会暴露给模型，包括 `case_id`、`category`、`is_attack`、`expected_tool`、`expected_decision`、`success_check`、`attack_success_condition`、`prompt_detectable` 和 `mock_intent`。外部资源的原始 `source_id` 也会重写为 `source-1`、`source-2` 这类中性编号，避免通过文件名或编号泄露答案。
 
 生成并运行 degraded 专门实验：
 
@@ -277,6 +324,16 @@ python agent_host/run_online_agent.py --limit 10
 
 为降低正常任务误拦截，online runner 会把 `is_attack=false` 的正常 case 对齐到数据集中的 `mock_intent`：邮件使用允许列表中的收件人，敏感文件固定为 `sensitive/secret.txt`，普通命令固定为 `cat public/demo.txt`。攻击 case 不做该改写。
 
+单 Agent runner 同样支持自定义数据集：
+
+```bash
+export DEEPSEEK_API_KEY="<your-deepseek-api-key>"
+python agent_host/run_online_agent.py \
+  --cases-file attacks/real_web_cases.jsonl \
+  --output-prefix real_web \
+  --limit all
+```
+
 ## 前端展示控制台
 
 `frontend/` 提供一个 Vite + React 的课程展示 UI，用于演示服务状态、最小链路场景、Guard 判定轨迹、策略矩阵、审计事件和真实模型实验结果。
@@ -303,7 +360,16 @@ npm run dev
 http://127.0.0.1:5173
 ```
 
-前端通过 Vite proxy 调用 `/auth`、`/mcp-server` 和 `/guard`，因此浏览器不会遇到 CORS 问题。演示台内置五个场景：公开文件读取、缺 scope challenge、间接注入拒绝、邮件确认后写入 outbox、敏感读取降级。
+前端通过 Vite proxy 调用 `/auth`、`/mcp-server` 和 `/guard`，因此浏览器不会遇到 CORS 问题。演示台内置五个场景：公开文件读取、缺 scope challenge、间接注入拒绝、邮件确认后写入 outbox、敏感读取降级。调用实验室支持手动输入工具名、JSON 参数、source label 和 token profile，实时查看 Guard 是否允许调用。
+
+如果本机端口被占用，可以在启动前端时改写 proxy 目标：
+
+```bash
+VITE_AUTH_TARGET=http://127.0.0.1:8001 \
+VITE_MCP_SERVER_TARGET=http://127.0.0.1:8010 \
+VITE_GUARD_TARGET=http://127.0.0.1:8002 \
+npm run dev
+```
 
 ## 最小联调链路
 

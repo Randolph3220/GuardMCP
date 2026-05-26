@@ -14,6 +14,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from agent_host.generate_degraded_cases import DEGRADED_CASES_PATH, build_degraded_cases  # noqa: E402
+from agent_host.generate_large_attack_cases import LARGE_ATTACK_CASES_PATH  # noqa: E402
 from agent_host.run_experiments import TOKEN_SCOPES  # noqa: E402
 from agent_host.run_online_agent import (  # noqa: E402
     AUTH_SERVER_URL,
@@ -24,11 +25,14 @@ from agent_host.run_online_agent import (  # noqa: E402
     attack_succeeded,
     build_messages,
     call_deepseek,
+    display_path,
     guard_rpc,
     http_json,
     normalize_model_intent,
     parse_limit,
     response_result,
+    resolve_project_path,
+    safe_output_prefix,
     select_cases,
     should_auto_confirm,
 )
@@ -45,6 +49,10 @@ DEGRADED_RESULTS_PATH = PROJECT_ROOT / "experiments" / "online_degraded_results.
 DEGRADED_TRACE_PATH = PROJECT_ROOT / "experiments" / "online_degraded_trace.jsonl"
 DEGRADED_SUMMARY_PATH = PROJECT_ROOT / "experiments" / "online_degraded_summary.csv"
 DEGRADED_SUMMARY_BY_CATEGORY_PATH = PROJECT_ROOT / "experiments" / "online_degraded_summary_by_category.csv"
+LARGE_ATTACK_RESULTS_PATH = PROJECT_ROOT / "experiments" / "online_large_attack_results.csv"
+LARGE_ATTACK_TRACE_PATH = PROJECT_ROOT / "experiments" / "online_large_attack_trace.jsonl"
+LARGE_ATTACK_SUMMARY_PATH = PROJECT_ROOT / "experiments" / "online_large_attack_summary.csv"
+LARGE_ATTACK_SUMMARY_BY_CATEGORY_PATH = PROJECT_ROOT / "experiments" / "online_large_attack_summary_by_category.csv"
 
 BASELINES = ("Direct", "Prompt-only", "Scope-only", "Full GuardMCP")
 EXECUTED_DECISIONS = {"allow", "degraded"}
@@ -55,13 +63,18 @@ def load_jsonl(path: Path) -> list[dict[str, Any]]:
         return [json.loads(line) for line in handle if line.strip()]
 
 
-def load_selected_cases(suite: str) -> list[dict[str, Any]]:
+def load_selected_cases(suite: str, cases_file: str | None = None) -> tuple[list[dict[str, Any]], Path]:
+    if cases_file:
+        path = resolve_project_path(cases_file)
+        return load_jsonl(path), path
     if suite == "main":
-        return load_jsonl(CASES_PATH)
+        return load_jsonl(CASES_PATH), CASES_PATH
     if suite == "degraded":
         if DEGRADED_CASES_PATH.exists():
-            return load_jsonl(DEGRADED_CASES_PATH)
-        return build_degraded_cases()
+            return load_jsonl(DEGRADED_CASES_PATH), DEGRADED_CASES_PATH
+        return build_degraded_cases(), DEGRADED_CASES_PATH
+    if suite == "large-attacks":
+        return load_jsonl(LARGE_ATTACK_CASES_PATH), LARGE_ATTACK_CASES_PATH
     raise ValueError(f"Unknown suite: {suite}")
 
 
@@ -302,10 +315,38 @@ def write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
     if not rows:
         return
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", newline="", encoding="utf-8") as handle:
-        writer = csv.DictWriter(handle, fieldnames=list(rows[0].keys()))
-        writer.writeheader()
-        writer.writerows(rows)
+    tmp_path = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    try:
+        with tmp_path.open("w", newline="", encoding="utf-8") as handle:
+            writer = csv.DictWriter(handle, fieldnames=list(rows[0].keys()))
+            writer.writeheader()
+            writer.writerows(rows)
+        os.replace(tmp_path, path)
+    finally:
+        if tmp_path.exists():
+            tmp_path.unlink()
+
+
+def read_csv(path: Path) -> list[dict[str, Any]]:
+    if not path.exists():
+        return []
+    with path.open(newline="", encoding="utf-8") as handle:
+        return list(csv.DictReader(handle))
+
+
+def completed_rows(rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], set[str]]:
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for row in rows:
+        grouped.setdefault(row["case_id"], []).append(row)
+
+    complete_rows: list[dict[str, Any]] = []
+    completed_case_ids: set[str] = set()
+    expected = set(BASELINES)
+    for case_id, case_rows in grouped.items():
+        if {row["baseline"] for row in case_rows} == expected:
+            completed_case_ids.add(case_id)
+            complete_rows.extend(case_rows)
+    return complete_rows, completed_case_ids
 
 
 def pct(numerator: int, denominator: int) -> str:
@@ -343,7 +384,9 @@ def summarize(rows: list[dict[str, Any]], group_fields: list[str]) -> list[dict[
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run online baselines with real model-generated intents.")
-    parser.add_argument("--suite", choices=["main", "degraded"], default="main")
+    parser.add_argument("--suite", choices=["main", "degraded", "large-attacks"], default="main")
+    parser.add_argument("--cases-file", help="JSONL case file to run instead of a built-in suite file.")
+    parser.add_argument("--output-prefix", help="Prefix for custom output files under experiments/.")
     parser.add_argument("--limit", type=parse_limit, default=10)
     parser.add_argument("--category")
     parser.add_argument("--case-id")
@@ -354,12 +397,61 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--retry-sleep", type=float, default=2.0)
     parser.add_argument("--auto-confirm", choices=["normal", "all", "none"], default="normal")
     parser.add_argument("--sleep", type=float, default=0.0)
+    parser.add_argument("--resume", action="store_true", help="Skip case ids that already have all baseline rows.")
+    parser.add_argument("--case-retries", type=int, default=3, help="Extra retries for a whole case after model/API failures.")
+    parser.add_argument("--case-retry-sleep", type=float, default=60.0, help="Sleep seconds between whole-case retries.")
     return parser.parse_args()
+
+
+def custom_output_paths(prefix: str) -> tuple[Path, Path, Path, Path]:
+    safe_prefix = safe_output_prefix(prefix)
+    experiments = PROJECT_ROOT / "experiments"
+    return (
+        experiments / f"online_{safe_prefix}_baseline_results.csv",
+        experiments / f"online_{safe_prefix}_baseline_trace.jsonl",
+        experiments / f"online_{safe_prefix}_baseline_summary.csv",
+        experiments / f"online_{safe_prefix}_baseline_summary_by_category.csv",
+    )
+
+
+def output_paths(suite: str, output_prefix: str | None = None) -> tuple[Path, Path, Path, Path]:
+    if output_prefix:
+        return custom_output_paths(output_prefix)
+    if suite == "degraded":
+        return (
+            DEGRADED_RESULTS_PATH,
+            DEGRADED_TRACE_PATH,
+            DEGRADED_SUMMARY_PATH,
+            DEGRADED_SUMMARY_BY_CATEGORY_PATH,
+        )
+    if suite == "large-attacks":
+        return (
+            LARGE_ATTACK_RESULTS_PATH,
+            LARGE_ATTACK_TRACE_PATH,
+            LARGE_ATTACK_SUMMARY_PATH,
+            LARGE_ATTACK_SUMMARY_BY_CATEGORY_PATH,
+        )
+    return (
+        RESULTS_PATH,
+        TRACE_PATH,
+        SUMMARY_PATH,
+        SUMMARY_BY_CATEGORY_PATH,
+    )
+
+
+def fetch_test_token_profiles() -> dict[str, Any]:
+    tokens = http_json("GET", f"{AUTH_SERVER_URL}/tokens/test")
+    return tokens["profiles"]
+
+
+def is_token_expired_error(exc: OnlineRunError) -> bool:
+    return "Token expired" in str(exc)
 
 
 def main() -> int:
     args = parse_args()
-    cases = select_cases(load_selected_cases(args.suite), args.category, args.case_id, args.limit)
+    all_cases, cases_path = load_selected_cases(args.suite, args.cases_file)
+    cases = select_cases(all_cases, args.category, args.case_id, args.limit)
     if not cases:
         raise OnlineRunError("No cases selected")
 
@@ -371,38 +463,67 @@ def main() -> int:
     if OUTBOX_PATH.exists():
         OUTBOX_PATH.unlink()
 
-    tokens = http_json("GET", f"{AUTH_SERVER_URL}/tokens/test")
-    profiles = tokens["profiles"]
+    profiles = fetch_test_token_profiles()
     run_id = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+    output_prefix = args.output_prefix or (cases_path.stem if args.cases_file else None)
+    results_path, trace_path, summary_path, summary_by_category_path = output_paths(args.suite, output_prefix)
     rows: list[dict[str, Any]] = []
-
-    if args.suite == "degraded":
-        results_path = DEGRADED_RESULTS_PATH
-        trace_path = DEGRADED_TRACE_PATH
-        summary_path = DEGRADED_SUMMARY_PATH
-        summary_by_category_path = DEGRADED_SUMMARY_BY_CATEGORY_PATH
-    else:
-        results_path = RESULTS_PATH
-        trace_path = TRACE_PATH
-        summary_path = SUMMARY_PATH
-        summary_by_category_path = SUMMARY_BY_CATEGORY_PATH
+    if args.resume:
+        rows, completed_case_ids = completed_rows(read_csv(results_path))
+        if completed_case_ids:
+            cases = [case for case in cases if case["case_id"] not in completed_case_ids]
+            write_csv(results_path, rows)
+            write_csv(summary_path, summarize(rows, ["baseline"]))
+            write_csv(summary_by_category_path, summarize(rows, ["baseline", "category"]))
+            print(f"resuming from {len(completed_case_ids)} completed cases")
 
     trace_path.parent.mkdir(parents=True, exist_ok=True)
-    with trace_path.open("w", encoding="utf-8") as trace_handle:
+    trace_mode = "a" if args.resume and trace_path.exists() else "w"
+    with trace_path.open(trace_mode, encoding="utf-8") as trace_handle:
         total = len(cases)
+        if total == 0:
+            print("no remaining cases to run")
+            return 0
         for index, case in enumerate(cases, start=1):
-            case_rows, trace = run_case_online_baselines(
-                case,
-                profiles[case["token_profile"]],
-                api_key,
-                args.model,
-                args.timeout,
-                args.max_tokens,
-                args.auto_confirm,
-                args.retries,
-                args.retry_sleep,
-                run_id,
-            )
+            case_attempt = 0
+            token_refreshes = 0
+            while True:
+                try:
+                    case_rows, trace = run_case_online_baselines(
+                        case,
+                        profiles[case["token_profile"]],
+                        api_key,
+                        args.model,
+                        args.timeout,
+                        args.max_tokens,
+                        args.auto_confirm,
+                        args.retries,
+                        args.retry_sleep,
+                        run_id,
+                    )
+                    break
+                except OnlineRunError as exc:
+                    if is_token_expired_error(exc):
+                        if token_refreshes >= 5:
+                            raise
+                        token_refreshes += 1
+                        profiles = fetch_test_token_profiles()
+                        print(
+                            f"[token-refresh] refreshed test tokens after expiry while running {case['case_id']} "
+                            f"({token_refreshes}/5)",
+                            file=sys.stderr,
+                        )
+                        continue
+                    if case_attempt >= args.case_retries:
+                        raise
+                    case_attempt += 1
+                    delay = min(args.case_retry_sleep * case_attempt, 300)
+                    print(
+                        f"[case-retry] {case['case_id']} failed after request retries: {exc}; "
+                        f"sleeping {delay:.1f}s ({case_attempt}/{args.case_retries})",
+                        file=sys.stderr,
+                    )
+                    time.sleep(delay)
             rows.extend(case_rows)
             trace_handle.write(json.dumps(trace, ensure_ascii=False, sort_keys=True) + "\n")
             trace_handle.flush()
@@ -414,10 +535,10 @@ def main() -> int:
             if args.sleep:
                 time.sleep(args.sleep)
 
-    print(f"wrote {len(rows)} rows to {results_path.relative_to(PROJECT_ROOT)}")
-    print(f"wrote trace to {trace_path.relative_to(PROJECT_ROOT)}")
-    print(f"wrote summary to {summary_path.relative_to(PROJECT_ROOT)}")
-    print(f"wrote category summary to {summary_by_category_path.relative_to(PROJECT_ROOT)}")
+    print(f"wrote {len(rows)} rows to {display_path(results_path)}")
+    print(f"wrote trace to {display_path(trace_path)}")
+    print(f"wrote summary to {display_path(summary_path)}")
+    print(f"wrote category summary to {display_path(summary_by_category_path)}")
     return 0
 
 
