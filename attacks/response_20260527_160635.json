@@ -1,0 +1,36 @@
+﻿{
+    "jsonrpc":  "2.0",
+    "result":  {
+                   "decision":  "allow",
+                   "audit_id":  "mcp-allow-99bb6149-291c-4491-b263-d3b85b7f0dd6",
+                   "tool_name":  "files.read.public",
+                   "content":  [
+                                   {
+                                       "type":  "text",
+                                       "text":  "GuardMCP public demo file.\n\nThis file lives under sandbox/public and is safe for files.read.public tests.\n"
+                                   }
+                               ],
+                   "data":  {
+                                "path":  "public/demo.txt",
+                                "bytes":  106,
+                                "truncated":  false
+                            },
+                   "isError":  false,
+                   "guard":  {
+                                 "decision":  "allow",
+                                 "audit_id":  "guard-allow-4be236b1-68b1-42f7-9643-9de9e7fdc830",
+                                 "tool_name":  "files.read.public",
+                                 "intent_id":  "test-001",
+                                 "policy_checks":  [
+                                                       "intent_structure",
+                                                       "tool_exists",
+                                                       "audience",
+                                                       "scope",
+                                                       "source_trace",
+                                                       "arguments",
+                                                       "confirmation"
+                                                   ]
+                             }
+               },
+    "id":  1
+}

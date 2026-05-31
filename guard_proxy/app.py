@@ -11,6 +11,21 @@ from typing import Any
 from fastapi import FastAPI, HTTPException, Request
 import jwt
 
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# 读取配置
+AUTH_JWKS_URL = os.getenv("AUTH_JWKS_URL", "http://localhost:8001/.well-known/jwks.json")
+MCP_SERVER_URL = os.getenv("MCP_SERVER_URL", "http://localhost:8000/mcp")
+
+# 如果环境变量中有端口配置，自动构造 URL
+auth_port = os.getenv("AUTH_SERVER_PORT", "8001")
+mcp_port = os.getenv("MCP_SERVER_PORT", "8000")
+AUTH_JWKS_URL = os.getenv("AUTH_JWKS_URL", f"http://localhost:{auth_port}/.well-known/jwks.json")
+MCP_SERVER_URL = os.getenv("MCP_SERVER_URL", f"http://localhost:{mcp_port}/mcp")
+
 try:
     from guard_proxy.audit import (
         AUDIT_LOG_PATH,
@@ -42,9 +57,9 @@ SECRET_KEY = "guardmcp-secret-key-2026-demo-shared-secret"
 ALGORITHM = "RS256"
 ISSUER = "oauth-server"
 AUDIENCE = "mcp-resource"
-AUTH_JWKS_URL = os.getenv("AUTH_JWKS_URL", "http://localhost:8001/.well-known/jwks.json")
+AUTH_JWKS_URL = os.getenv("AUTH_JWKS_URL", "http://localhost:18001/.well-known/jwks.json")
 JWKS_CACHE_SECONDS = int(os.getenv("GUARD_JWKS_CACHE_SECONDS", "300"))
-MCP_SERVER_URL = os.getenv("MCP_SERVER_URL", "http://localhost:8000/mcp")
+MCP_SERVER_URL = os.getenv("MCP_SERVER_URL", "http://localhost:18000/mcp")
 POLICY_CONFIG_PATH = os.getenv("GUARD_POLICY_PATH", str(DEFAULT_POLICY_PATH))
 
 
@@ -666,5 +681,6 @@ async def audit_by_id(audit_id: str):
 
 if __name__ == "__main__":
     import uvicorn
-
-    uvicorn.run(app, host="0.0.0.0", port=8002)
+    host = os.getenv("GUARD_PROXY_HOST", "127.0.0.1")
+    port = int(os.getenv("GUARD_PROXY_PORT", "8002"))
+    uvicorn.run(app, host=host, port=port)

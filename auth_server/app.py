@@ -5,6 +5,10 @@ from typing import Any
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 import jwt
+import os
+from dotenv import load_dotenv
+
+load_dotenv()  # 加载 .env 文件
 
 try:
     from auth_server.keys import KEY_STORE
@@ -16,8 +20,8 @@ app = FastAPI(title="OAuth Authorization Server")
 ALGORITHM = "RS256"
 ISSUER = "oauth-server"
 AUDIENCE = "mcp-resource"
-AUTH_SERVER_BASE_URL = "http://localhost:8001"
-MCP_RESOURCE_METADATA_URL = "http://localhost:8000/.well-known/oauth-protected-resource"
+AUTH_SERVER_BASE_URL = "http://localhost:18001"
+MCP_RESOURCE_METADATA_URL = "http://localhost:18000/.well-known/oauth-protected-resource"
 JWKS_URL = f"{AUTH_SERVER_BASE_URL}/.well-known/jwks.json"
 DEFAULT_EXPIRES_IN = 3600
 
@@ -260,4 +264,6 @@ async def health():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8001)
+    host = os.getenv("AUTH_SERVER_HOST", "127.0.0.1")
+    port = int(os.getenv("AUTH_SERVER_PORT", "8001"))
+    uvicorn.run(app, host=host, port=port)

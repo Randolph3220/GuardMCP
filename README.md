@@ -46,11 +46,24 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
+---
+
+
+
+powershell中激活虚拟环境：
+
+```
+.\.venv\Scripts\activate
+```
+
+
+
 ## 当前启动方式
 
 先启动授权服务：
 
 ```bash
+.\.venv\Scripts\activate
 python auth_server/app.py
 ```
 
@@ -63,6 +76,7 @@ http://localhost:8001
 再启动 MCP-like 服务：
 
 ```bash
+.\.venv\Scripts\activate
 python mcp_server/app.py
 ```
 
@@ -75,6 +89,7 @@ http://localhost:8000
 最后启动 Guard Proxy：
 
 ```bash
+.\.venv\Scripts\activate
 python guard_proxy/app.py
 ```
 
@@ -100,6 +115,11 @@ uvicorn guard_proxy.app:app --host 0.0.0.0 --port 8002 --reload
 curl -X POST http://localhost:8001/token \
   -H "Content-Type: application/json" \
   -d '{"user_id":"alice","session_id":"session-001","scopes":["tools.list","files.read.public"]}'
+  
+powershell:
+$tokenResponse = Invoke-RestMethod -Uri http://localhost:8001/token -Method Post -ContentType "application/json" -Body '{"user_id":"alice","session_id":"session-001","scopes":["tools.list","files.read.public"]}'
+$tokenResponse | ConvertTo-Json -Depth 3
+$token = $tokenResponse.access_token
 ```
 
 2. 使用返回的 `access_token` 通过 Guard Proxy 初始化 MCP-like 服务：
@@ -109,6 +129,11 @@ curl -X POST http://localhost:8002/mcp \
   -H "Authorization: Bearer <ACCESS_TOKEN>" \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}'
+  
+powershell:
+$body2 = '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}'
+$response2 = Invoke-RestMethod -Uri http://localhost:8002/mcp -Method Post -Headers @{Authorization="Bearer $token"} -Body $body2 -ContentType "application/json"
+$response2 | ConvertTo-Json -Depth 3
 ```
 
 3. 查询工具列表：
@@ -118,6 +143,11 @@ curl -X POST http://localhost:8002/mcp \
   -H "Authorization: Bearer <ACCESS_TOKEN>" \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}'
+  
+powershell:
+$body3 = '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}'
+$response3 = Invoke-RestMethod -Uri http://localhost:8002/mcp -Method Post -Headers @{Authorization="Bearer $token"} -Body $body3 -ContentType "application/json"
+$response3 | ConvertTo-Json -Depth 3
 ```
 
 4. 调用文件读取工具：
@@ -127,6 +157,11 @@ curl -X POST http://localhost:8002/mcp \
   -H "Authorization: Bearer <ACCESS_TOKEN>" \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"files.read.public","arguments":{"path":"public/demo.txt"}}}'
+  
+powershell:
+$body4 = '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"files.read.public","arguments":{"path":"public/demo.txt"}}}'
+$response4 = Invoke-RestMethod -Uri http://localhost:8002/mcp -Method Post -Headers @{Authorization="Bearer $token"} -Body $body4 -ContentType "application/json"
+$response4 | ConvertTo-Json -Depth 3
 ```
 
 当前 `tools/call` 会先进入 Guard Proxy 的 PolicyEngine，再转发给 MCP-like 服务。MCP Server 提供 mock runtime：文件读取限制在 `sandbox/`，邮件只写本地 `outbox.jsonl`，命令执行只允许只读白名单命令。
@@ -159,6 +194,11 @@ curl http://localhost:8001/keys
 curl -X POST http://localhost:8001/keys/rotate \
   -H "Content-Type: application/json" \
   -d '{"retire_old":true}'
+  
+powershell:
+curl.exe -X POST http: `
+  -H "Content-Type: application/json" `
+  -d "{\" \":\" \"}"
 ```
 
 授权服务 token 验证接口：
@@ -167,6 +207,11 @@ curl -X POST http://localhost:8001/keys/rotate \
 curl -X POST http://localhost:8001/verify \
   -H "Content-Type: application/json" \
   -d '{"token":"<ACCESS_TOKEN>"}'
+  
+powershell:
+curl.exe -X POST http: `
+  -H "Content-Type: application/json" `
+  -d "{\" \":\" \"}"
 ```
 
 一次性生成 T1 到 T5 测试令牌：

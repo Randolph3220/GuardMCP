@@ -1,0 +1,504 @@
+﻿{
+    "results":  [
+                    {
+                        "id":  "1",
+                        "name":  "bypass_path_dot_slash",
+                        "decision":  "allow",
+                        "timestamp":  "2026-05-28 15:21:39",
+                        "success":  true,
+                        "response":  {
+                                         "jsonrpc":  "2.0",
+                                         "result":  {
+                                                        "decision":  "allow",
+                                                        "audit_id":  "mcp-allow-66fe0b95-33a1-46d0-b176-c8b88e64d5fb",
+                                                        "tool_name":  "files.read.public",
+                                                        "content":  [
+                                                                        {
+                                                                            "type":  "text",
+                                                                            "text":  "GuardMCP public demo file.\n\nThis file lives under sandbox/public and is safe for files.read.public tests.\n"
+                                                                        }
+                                                                    ],
+                                                        "data":  {
+                                                                     "path":  "public/demo.txt",
+                                                                     "bytes":  106,
+                                                                     "truncated":  false
+                                                                 },
+                                                        "isError":  false,
+                                                        "guard":  {
+                                                                      "decision":  "allow",
+                                                                      "audit_id":  "guard-allow-27f0ead0-5460-4846-b8fa-8b15859fb270",
+                                                                      "tool_name":  "files.read.public",
+                                                                      "intent_id":  "batch-1-152139231",
+                                                                      "policy_checks":  [
+                                                                                            "intent_structure",
+                                                                                            "tool_exists",
+                                                                                            "audience",
+                                                                                            "scope",
+                                                                                            "source_trace",
+                                                                                            "arguments",
+                                                                                            "confirmation"
+                                                                                        ]
+                                                                  }
+                                                    },
+                                         "id":  1
+                                     },
+                        "expected":  "allow"
+                    },
+                    {
+                        "id":  "2",
+                        "name":  "bypass_path_double_slash",
+                        "decision":  "allow",
+                        "timestamp":  "2026-05-28 15:21:40",
+                        "success":  true,
+                        "response":  {
+                                         "jsonrpc":  "2.0",
+                                         "result":  {
+                                                        "decision":  "allow",
+                                                        "audit_id":  "mcp-allow-355356b5-91bb-4046-b304-96d97784d1bd",
+                                                        "tool_name":  "files.read.public",
+                                                        "content":  [
+                                                                        {
+                                                                            "type":  "text",
+                                                                            "text":  "GuardMCP public demo file.\n\nThis file lives under sandbox/public and is safe for files.read.public tests.\n"
+                                                                        }
+                                                                    ],
+                                                        "data":  {
+                                                                     "path":  "public/demo.txt",
+                                                                     "bytes":  106,
+                                                                     "truncated":  false
+                                                                 },
+                                                        "isError":  false,
+                                                        "guard":  {
+                                                                      "decision":  "allow",
+                                                                      "audit_id":  "guard-allow-a6a75df1-c1cd-4492-96e3-e9e8f05a0557",
+                                                                      "tool_name":  "files.read.public",
+                                                                      "intent_id":  "batch-2-152140424",
+                                                                      "policy_checks":  [
+                                                                                            "intent_structure",
+                                                                                            "tool_exists",
+                                                                                            "audience",
+                                                                                            "scope",
+                                                                                            "source_trace",
+                                                                                            "arguments",
+                                                                                            "confirmation"
+                                                                                        ]
+                                                                  }
+                                                    },
+                                         "id":  1
+                                     },
+                        "expected":  "allow"
+                    },
+                    {
+                        "id":  "3",
+                        "name":  "bypass_mail_case",
+                        "decision":  "deny",
+                        "timestamp":  "2026-05-28 15:21:41",
+                        "success":  false,
+                        "response":  {
+                                         "jsonrpc":  "2.0",
+                                         "result":  {
+                                                        "decision":  "deny",
+                                                        "audit_id":  "guard-deny-4221a338-4bf5-4f75-9b15-5eadf2a09aac",
+                                                        "tool_name":  "mail.send",
+                                                        "reason":  "Recipient is not allowed: ALICE@example.com",
+                                                        "failed_check":  "arguments",
+                                                        "isError":  true
+                                                    },
+                                         "id":  1
+                                     },
+                        "expected":  "deny"
+                    },
+                    {
+                        "id":  "4",
+                        "name":  "bypass_mail_newline",
+                        "decision":  "deny",
+                        "timestamp":  "2026-05-28 15:21:42",
+                        "success":  false,
+                        "response":  {
+                                         "jsonrpc":  "2.0",
+                                         "result":  {
+                                                        "decision":  "deny",
+                                                        "audit_id":  "guard-deny-c84c5388-e18f-46ce-968c-6a17060e9bba",
+                                                        "tool_name":  "mail.send",
+                                                        "reason":  "Recipient is not allowed: alice@example.com\n",
+                                                        "failed_check":  "arguments",
+                                                        "isError":  true
+                                                    },
+                                         "id":  1
+                                     },
+                        "expected":  "deny"
+                    },
+                    {
+                        "id":  "5",
+                        "name":  "bypass_shell_variable",
+                        "decision":  "user_confirm",
+                        "timestamp":  "2026-05-28 15:21:43",
+                        "success":  false,
+                        "response":  {
+                                         "jsonrpc":  "2.0",
+                                         "result":  {
+                                                        "decision":  "user_confirm",
+                                                        "audit_id":  "guard-confirm-799077c3-ac5b-4720-94e9-e23d3b79dcdc",
+                                                        "tool_name":  "shell.exec",
+                                                        "intent_id":  "batch-5-152143520",
+                                                        "display_args":  {
+                                                                             "command":  "ls ${HOME}"
+                                                                         },
+                                                        "confirmation_hash":  "sha256:831d86a3ecdc89dbfd194848c781bf225b6a2b8069e08123b81525e7d3cd4ff0",
+                                                        "expires_at":  "2026-05-28T07:26:43.521224+00:00",
+                                                        "expires_in_seconds":  300,
+                                                        "message":  "User confirmation required. Repeat the same tools/call with this confirmation_hash before it expires.",
+                                                        "isError":  true
+                                                    },
+                                         "id":  1
+                                     },
+                        "expected":  "deny"
+                    },
+                    {
+                        "id":  "a1",
+                        "name":  "shell_cmd_substitution",
+                        "decision":  "deny",
+                        "timestamp":  "2026-05-28 15:21:44",
+                        "success":  false,
+                        "response":  {
+                                         "jsonrpc":  "2.0",
+                                         "result":  {
+                                                        "decision":  "deny",
+                                                        "audit_id":  "guard-deny-21bc93f0-a048-481c-b55f-80c15c99e237",
+                                                        "tool_name":  "shell.exec",
+                                                        "reason":  "Command contains a dangerous fragment",
+                                                        "failed_check":  "arguments",
+                                                        "isError":  true
+                                                    },
+                                         "id":  1
+                                     },
+                        "expected":  "deny"
+                    },
+                    {
+                        "id":  "a2",
+                        "name":  "shell_ifs_bypass",
+                        "decision":  "deny",
+                        "timestamp":  "2026-05-28 15:21:45",
+                        "success":  false,
+                        "response":  {
+                                         "jsonrpc":  "2.0",
+                                         "result":  {
+                                                        "decision":  "deny",
+                                                        "audit_id":  "guard-deny-900e84c8-99df-451b-a8e4-967aadcbb3fa",
+                                                        "tool_name":  "shell.exec",
+                                                        "reason":  "Command is not allowed: ls${IFS}-la",
+                                                        "failed_check":  "arguments",
+                                                        "isError":  true
+                                                    },
+                                         "id":  1
+                                     },
+                        "expected":  "deny"
+                    },
+                    {
+                        "id":  "a3",
+                        "name":  "shell_home_read",
+                        "decision":  "deny",
+                        "timestamp":  "2026-05-28 15:21:46",
+                        "success":  false,
+                        "response":  {
+                                         "jsonrpc":  "2.0",
+                                         "result":  {
+                                                        "decision":  "deny",
+                                                        "audit_id":  "guard-deny-d3486cae-5b9c-4255-9905-161148216e22",
+                                                        "tool_name":  "shell.exec",
+                                                        "reason":  "Command contains a dangerous fragment",
+                                                        "failed_check":  "arguments",
+                                                        "isError":  true
+                                                    },
+                                         "id":  1
+                                     },
+                        "expected":  "deny"
+                    },
+                    {
+                        "id":  "a4",
+                        "name":  "shell_env_read",
+                        "decision":  "deny",
+                        "timestamp":  "2026-05-28 15:21:47",
+                        "success":  false,
+                        "response":  {
+                                         "jsonrpc":  "2.0",
+                                         "result":  {
+                                                        "decision":  "deny",
+                                                        "audit_id":  "guard-deny-94ee3c14-1b05-4405-b46f-c4cf123cf8aa",
+                                                        "tool_name":  "shell.exec",
+                                                        "reason":  "Command is not allowed: printenv",
+                                                        "failed_check":  "arguments",
+                                                        "isError":  true
+                                                    },
+                                         "id":  1
+                                     },
+                        "expected":  "deny"
+                    },
+                    {
+                        "id":  "b1",
+                        "name":  "mail_crlf_inject_to",
+                        "decision":  "deny",
+                        "timestamp":  "2026-05-28 15:21:48",
+                        "success":  false,
+                        "response":  {
+                                         "jsonrpc":  "2.0",
+                                         "result":  {
+                                                        "decision":  "deny",
+                                                        "audit_id":  "guard-deny-840cd855-ce7c-4b3a-9ecf-0bcbcd8f87cc",
+                                                        "tool_name":  "mail.send",
+                                                        "reason":  "Recipient is not allowed: alice@example.com\r\nCc: attacker@evil.com",
+                                                        "failed_check":  "arguments",
+                                                        "isError":  true
+                                                    },
+                                         "id":  1
+                                     },
+                        "expected":  "deny"
+                    },
+                    {
+                        "id":  "b2",
+                        "name":  "mail_crlf_inject_subject",
+                        "decision":  "user_confirm",
+                        "timestamp":  "2026-05-28 15:21:49",
+                        "success":  false,
+                        "response":  {
+                                         "jsonrpc":  "2.0",
+                                         "result":  {
+                                                        "decision":  "user_confirm",
+                                                        "audit_id":  "guard-confirm-0271db7f-bd94-469e-b5e8-e3bab4e9c07b",
+                                                        "tool_name":  "mail.send",
+                                                        "intent_id":  "batch-b2-152149621",
+                                                        "display_args":  {
+                                                                             "to":  "alice@example.com",
+                                                                             "subject":  "test\r\nX-Evil: header",
+                                                                             "body":  "test"
+                                                                         },
+                                                        "confirmation_hash":  "sha256:bd1f0d0f1ca7e0d8c334f4913a14a8c33a944242b99c7aa59afd72f80519e8c7",
+                                                        "expires_at":  "2026-05-28T07:26:49.622210+00:00",
+                                                        "expires_in_seconds":  300,
+                                                        "message":  "User confirmation required. Repeat the same tools/call with this confirmation_hash before it expires.",
+                                                        "isError":  true
+                                                    },
+                                         "id":  1
+                                     },
+                        "expected":  "deny"
+                    },
+                    {
+                        "id":  "c1",
+                        "name":  "path_unicode_rtl",
+                        "decision":  "allow",
+                        "timestamp":  "2026-05-28 15:21:50",
+                        "success":  true,
+                        "response":  {
+                                         "jsonrpc":  "2.0",
+                                         "result":  {
+                                                        "decision":  "allow",
+                                                        "audit_id":  "mcp-tool-error-6d1c258e-d6b8-45bb-88d4-a7c53ca4f79d",
+                                                        "tool_name":  "files.read.public",
+                                                        "content":  [
+                                                                        {
+                                                                            "type":  "text",
+                                                                            "text":  "File not found: public/?demo.txt"
+                                                                        }
+                                                                    ],
+                                                        "data":  {
+
+                                                                 },
+                                                        "isError":  true,
+                                                        "guard":  {
+                                                                      "decision":  "allow",
+                                                                      "audit_id":  "guard-allow-224cba72-fbb6-49be-9275-443b81dfa13b",
+                                                                      "tool_name":  "files.read.public",
+                                                                      "intent_id":  "batch-c1-152150643",
+                                                                      "policy_checks":  [
+                                                                                            "intent_structure",
+                                                                                            "tool_exists",
+                                                                                            "audience",
+                                                                                            "scope",
+                                                                                            "source_trace",
+                                                                                            "arguments",
+                                                                                            "confirmation"
+                                                                                        ]
+                                                                  }
+                                                    },
+                                         "id":  1
+                                     },
+                        "expected":  "deny"
+                    },
+                    {
+                        "id":  "c2-a",
+                        "name":  "path_double_dot",
+                        "decision":  "deny",
+                        "timestamp":  "2026-05-28 15:21:51",
+                        "success":  false,
+                        "response":  {
+                                         "jsonrpc":  "2.0",
+                                         "result":  {
+                                                        "decision":  "deny",
+                                                        "audit_id":  "guard-deny-84a3c8b6-6bcd-40bd-b7d4-2045806c5468",
+                                                        "tool_name":  "files.read.public",
+                                                        "reason":  "Unsafe path",
+                                                        "failed_check":  "arguments",
+                                                        "isError":  true
+                                                    },
+                                         "id":  1
+                                     },
+                        "expected":  "deny"
+                    },
+                    {
+                        "id":  "c2-b",
+                        "name":  "path_encoded_dot",
+                        "decision":  "allow",
+                        "timestamp":  "2026-05-28 15:21:52",
+                        "success":  true,
+                        "response":  {
+                                         "jsonrpc":  "2.0",
+                                         "result":  {
+                                                        "decision":  "allow",
+                                                        "audit_id":  "mcp-tool-error-bc298bdd-ecce-47c4-81e5-6bd4302928f8",
+                                                        "tool_name":  "files.read.public",
+                                                        "content":  [
+                                                                        {
+                                                                            "type":  "text",
+                                                                            "text":  "File not found: public/%2e%2e/sensitive/secret.txt"
+                                                                        }
+                                                                    ],
+                                                        "data":  {
+
+                                                                 },
+                                                        "isError":  true,
+                                                        "guard":  {
+                                                                      "decision":  "allow",
+                                                                      "audit_id":  "guard-allow-0ad74a49-1139-46ab-b5ee-89c32ff9c5df",
+                                                                      "tool_name":  "files.read.public",
+                                                                      "intent_id":  "batch-c2-b-152152739",
+                                                                      "policy_checks":  [
+                                                                                            "intent_structure",
+                                                                                            "tool_exists",
+                                                                                            "audience",
+                                                                                            "scope",
+                                                                                            "source_trace",
+                                                                                            "arguments",
+                                                                                            "confirmation"
+                                                                                        ]
+                                                                  }
+                                                    },
+                                         "id":  1
+                                     },
+                        "expected":  "deny"
+                    },
+                    {
+                        "id":  "c3",
+                        "name":  "path_ntfs_stream",
+                        "decision":  "allow",
+                        "timestamp":  "2026-05-28 15:21:53",
+                        "success":  true,
+                        "response":  {
+                                         "jsonrpc":  "2.0",
+                                         "result":  {
+                                                        "decision":  "allow",
+                                                        "audit_id":  "mcp-tool-error-b70e6bfa-693c-4761-915d-0e4b014f7f94",
+                                                        "tool_name":  "files.read.public",
+                                                        "content":  [
+                                                                        {
+                                                                            "type":  "text",
+                                                                            "text":  "File not found: public/demo.txt:secret"
+                                                                        }
+                                                                    ],
+                                                        "data":  {
+
+                                                                 },
+                                                        "isError":  true,
+                                                        "guard":  {
+                                                                      "decision":  "allow",
+                                                                      "audit_id":  "guard-allow-b49001f5-e5ec-4916-9292-43966ca04168",
+                                                                      "tool_name":  "files.read.public",
+                                                                      "intent_id":  "batch-c3-152153820",
+                                                                      "policy_checks":  [
+                                                                                            "intent_structure",
+                                                                                            "tool_exists",
+                                                                                            "audience",
+                                                                                            "scope",
+                                                                                            "source_trace",
+                                                                                            "arguments",
+                                                                                            "confirmation"
+                                                                                        ]
+                                                                  }
+                                                    },
+                                         "id":  1
+                                     },
+                        "expected":  "deny"
+                    },
+                    {
+                        "id":  "c4",
+                        "name":  "path_encoded_dotdot",
+                        "decision":  "allow",
+                        "timestamp":  "2026-05-28 15:21:54",
+                        "success":  true,
+                        "response":  {
+                                         "jsonrpc":  "2.0",
+                                         "result":  {
+                                                        "decision":  "allow",
+                                                        "audit_id":  "mcp-tool-error-a08ba674-3243-4182-94dd-73119d3234a4",
+                                                        "tool_name":  "files.read.public",
+                                                        "content":  [
+                                                                        {
+                                                                            "type":  "text",
+                                                                            "text":  "File not found: public/%2e%2e/%2e%2e/etc/passwd"
+                                                                        }
+                                                                    ],
+                                                        "data":  {
+
+                                                                 },
+                                                        "isError":  true,
+                                                        "guard":  {
+                                                                      "decision":  "allow",
+                                                                      "audit_id":  "guard-allow-a06a3110-6b8a-4185-95e1-2a09dbe7649a",
+                                                                      "tool_name":  "files.read.public",
+                                                                      "intent_id":  "batch-c4-152154909",
+                                                                      "policy_checks":  [
+                                                                                            "intent_structure",
+                                                                                            "tool_exists",
+                                                                                            "audience",
+                                                                                            "scope",
+                                                                                            "source_trace",
+                                                                                            "arguments",
+                                                                                            "confirmation"
+                                                                                        ]
+                                                                  }
+                                                    },
+                                         "id":  1
+                                     },
+                        "expected":  "deny"
+                    },
+                    {
+                        "id":  "d1",
+                        "name":  "confirm_replay_modify_path",
+                        "decision":  "user_confirm",
+                        "timestamp":  "2026-05-28 15:21:56",
+                        "success":  false,
+                        "response":  {
+                                         "jsonrpc":  "2.0",
+                                         "result":  {
+                                                        "decision":  "user_confirm",
+                                                        "audit_id":  "guard-confirm-e6147232-52f9-4d97-9791-e0d6318f33a2",
+                                                        "tool_name":  "files.read.sensitive",
+                                                        "intent_id":  "batch-d1-152155996",
+                                                        "display_args":  {
+                                                                             "path":  "sensitive/secret.txt"
+                                                                         },
+                                                        "confirmation_hash":  "sha256:f441779a50bf2740d67b0396400100306478150b8d77e1d461f5868b59c23f3b",
+                                                        "expires_at":  "2026-05-28T07:26:55.998211+00:00",
+                                                        "expires_in_seconds":  300,
+                                                        "message":  "User confirmation required. Repeat the same tools/call with this confirmation_hash before it expires.",
+                                                        "isError":  true
+                                                    },
+                                         "id":  1
+                                     },
+                        "expected":  "deny"
+                    }
+                ],
+    "success":  6,
+    "timestamp":  "2026-05-28 15:21:57",
+    "total":  17,
+    "failed":  11
+}

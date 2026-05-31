@@ -14,6 +14,10 @@ from pydantic import BaseModel, Field
 from typing import Dict, Any, List
 import jwt
 import uuid
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = FastAPI(title="MCP-like Server")
 security = HTTPBearer()
@@ -21,10 +25,10 @@ security = HTTPBearer()
 ALGORITHM = "RS256"
 ISSUER = "oauth-server"
 AUDIENCE = "mcp-resource"
-AUTHORIZATION_SERVER = "http://localhost:8001"
-AUTH_JWKS_URL = os.getenv("AUTH_JWKS_URL", "http://localhost:8001/.well-known/jwks.json")
+AUTHORIZATION_SERVER = "http://localhost:18001"
+AUTH_JWKS_URL = os.getenv("AUTH_JWKS_URL", "http://localhost:18001/.well-known/jwks.json")
 JWKS_CACHE_SECONDS = int(os.getenv("MCP_JWKS_CACHE_SECONDS", "300"))
-MCP_SERVER_BASE_URL = "http://localhost:8000"
+MCP_SERVER_BASE_URL = os.getenv("MCP_SERVER_BASE_URL", "http://localhost:18002")
 RESOURCE_METADATA_URL = f"{MCP_SERVER_BASE_URL}/.well-known/oauth-protected-resource"
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SANDBOX_ROOT = PROJECT_ROOT / "sandbox"
@@ -501,5 +505,6 @@ async def health():
 
 if __name__ == "__main__":
     import uvicorn
-
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    host = os.getenv("MCP_SERVER_HOST", "127.0.0.1")
+    port = int(os.getenv("MCP_SERVER_PORT", "18002"))  # 改为 18002
+    uvicorn.run(app, host=host, port=port)
